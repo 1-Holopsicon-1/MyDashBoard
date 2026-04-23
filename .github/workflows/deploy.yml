@@ -99,5 +99,5 @@ jobs:
             ENVEOF
 
             # Pull and restart
-            docker compose -f $DEPLOY_PATH/docker-compose.yml pull
-            docker compose -f $DEPLOY_PATH/docker-compose.yml up -d
+            docker-compose -f $DEPLOY_PATH/docker-compose.yml pull
+            docker-compose -f $DEPLOY_PATH/docker-compose.yml up -d
