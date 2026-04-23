@@ -1,0 +1,9 @@
+.git
+.github
+.idea
+*.md
+!frontend/README.md
+frontend/node_modules
+frontend/.svelte-kit
+frontend/build
+backend/server

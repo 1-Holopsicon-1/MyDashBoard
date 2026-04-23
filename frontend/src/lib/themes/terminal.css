@@ -1,0 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+:root[data-theme='terminal'] {
+	/* Background */
+	--color-bg: #0d0d0d;
+	--color-surface: #0a0a0a;
+	--color-card: #111111;
+
+	/* Text */
+	--color-text: #00ff41;
+	--color-text-secondary: #00aa2a;
+	--color-accent: #00ff41;
+
+	/* Status */
+	--color-online: #00ff41;
+	--color-offline: #ff2222;
+	--color-warning: #ffcc00;
+
+	/* Borders & UI */
+	--color-border: #1a3a1a;
+	--color-hover: #0a1f0a;
+	--color-active: #0d2b0d;
+
+	/* Typography */
+	--font-mono: 'JetBrains Mono', monospace;
+	--font-body: 'JetBrains Mono', monospace;
+
+	/* Shape */
+	--radius: 0px;
+
+	/* Shadows */
+	--shadow-card-hover: 0 0 12px rgba(0, 255, 65, 0.15);
+	--shadow-btn: inset 0 0 8px rgba(0, 255, 65, 0.1);
+
+	/* Theme-specific */
+	--scanline-opacity: 0.03;
+}
+
+:root[data-theme='terminal'] body {
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-mono);
+	position: relative;
+}
+
+/* CRT scanline overlay */
+:root[data-theme='terminal'] body::after {
+	content: '';
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	z-index: 9999;
+	background: repeating-linear-gradient(
+		0deg,
+		transparent,
+		transparent 2px,
+		rgba(0, 0, 0, var(--scanline-opacity)) 2px,
+		rgba(0, 0, 0, var(--scanline-opacity)) 4px
+	);
+}
+
+/* Subtle text glow */
+:root[data-theme='terminal'] .hostname,
+:root[data-theme='terminal'] .name {
+	text-shadow: 0 0 8px rgba(0, 255, 65, 0.4);
+}
+
+/* Blinking cursor after header title */
+:root[data-theme='terminal'] .logo::after {
+	content: '█';
+	animation: blink 1s step-end infinite;
+	margin-left: 2px;
+	font-weight: 400;
+}
+
+@keyframes blink {
+	50% { opacity: 0; }
+}

@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+:root[data-theme='minimal'] {
+	/* Background */
+	--color-bg: #f5f5f0;
+	--color-surface: #eaeae5;
+	--color-card: #ffffff;
+
+	/* Text */
+	--color-text: #1a1a1a;
+	--color-text-secondary: #888880;
+	--color-accent: #1a1a1a;
+
+	/* Status */
+	--color-online: #2d8a4e;
+	--color-offline: #c0392b;
+	--color-warning: #d4a017;
+
+	/* Borders & UI */
+	--color-border: #ddddd5;
+	--color-hover: #f0f0eb;
+	--color-active: #e8e8e2;
+
+	/* Typography */
+	--font-mono: 'DM Mono', monospace;
+	--font-body: 'DM Sans', sans-serif;
+
+	/* Shape */
+	--radius: 4px;
+
+	/* Shadows */
+	--shadow-card-hover: 0 2px 12px rgba(0, 0, 0, 0.06);
+	--shadow-btn: none;
+}
+
+:root[data-theme='minimal'] body {
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-body);
+}
+
+/* Refined card style */
+:root[data-theme='minimal'] .card {
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* Clean section headers */
+:root[data-theme='minimal'] .section-title {
+	font-family: 'DM Sans', sans-serif;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+
+/* Subtle divider under header */
+:root[data-theme='minimal'] header {
+	border-bottom: 1px solid var(--color-border);
+}

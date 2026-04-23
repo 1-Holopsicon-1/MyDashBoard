@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root[data-theme='glass'] {
+	/* Background */
+	--color-bg: #0a0a1a;
+	--color-surface: rgba(255, 255, 255, 0.04);
+	--color-card: rgba(255, 255, 255, 0.06);
+
+	/* Text */
+	--color-text: #e8e8f0;
+	--color-text-secondary: #7a7a9a;
+	--color-accent: #7c6fff;
+
+	/* Status */
+	--color-online: #6fefff;
+	--color-offline: #ff4f6e;
+	--color-warning: #ffb347;
+
+	/* Borders & UI */
+	--color-border: rgba(255, 255, 255, 0.08);
+	--color-hover: rgba(124, 111, 255, 0.08);
+	--color-active: rgba(124, 111, 255, 0.14);
+
+	/* Typography */
+	--font-mono: 'Outfit', sans-serif;
+	--font-body: 'Outfit', sans-serif;
+
+	/* Shape */
+	--radius: 12px;
+
+	/* Shadows */
+	--shadow-card-hover: 0 8px 32px rgba(124, 111, 255, 0.15);
+	--shadow-btn: 0 0 12px rgba(124, 111, 255, 0.2);
+}
+
+:root[data-theme='glass'] body {
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-body);
+	position: relative;
+	min-height: 100vh;
+}
+
+/* Gradient mesh background */
+:root[data-theme='glass'] body::before {
+	content: '';
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	background:
+		radial-gradient(ellipse 80% 60% at 10% 20%, rgba(124, 111, 255, 0.18) 0%, transparent 60%),
+		radial-gradient(ellipse 60% 80% at 85% 70%, rgba(111, 239, 255, 0.12) 0%, transparent 55%),
+		radial-gradient(ellipse 50% 50% at 50% 50%, rgba(255, 79, 110, 0.06) 0%, transparent 50%);
+}
+
+/* Glassmorphism cards */
+:root[data-theme='glass'] .card {
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme='glass'] .card:hover {
+	border-color: rgba(124, 111, 255, 0.3);
+	box-shadow: 0 8px 32px rgba(124, 111, 255, 0.15);
+}
+
+/* Glass switcher */
+:root[data-theme='glass'] .switcher {
+	backdrop-filter: blur(16px);
+	-webkit-backdrop-filter: blur(16px);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Accent glow on active elements */
+:root[data-theme='glass'] .btn.active {
+	box-shadow: 0 0 16px rgba(124, 111, 255, 0.3);
+}
+
+/* Header with subtle glass */
+:root[data-theme='glass'] header {
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Glow on online dots */
+:root[data-theme='glass'] .online {
+	box-shadow: 0 0 10px rgba(111, 239, 255, 0.5);
+}
