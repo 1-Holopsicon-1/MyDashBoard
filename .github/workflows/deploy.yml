@@ -75,6 +75,8 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: docker-compose.yml
           target: ${{ secrets.DEPLOY_PATH }}
+          strip_components: 1
+          overwrite: true
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
