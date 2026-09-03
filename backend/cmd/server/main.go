@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -59,7 +60,7 @@ func main() {
 	// Services
 	tailscaleSvc := service.NewTailscale(tailscaleClient)
 	healthSvc := service.NewHealth(healthChecker, map[string]string{
-		"vaultwarden": cfg.VaultwardenURL,
+		"vaultwarden": strings.TrimRight(cfg.VaultwardenURL, "/") + "/alive",
 	})
 	containerSvc := service.NewContainer(dockerClient, cfg.ContainerFilters)
 	simplexSvc := service.NewSimplex(dockerClient, []string{"simplex"})

@@ -147,13 +147,12 @@ func (h *AuthHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	credential, err := h.webauthn.FinishLogin(user, *session, r)
+	_, err := h.webauthn.FinishLogin(user, *session, r)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	user.SignCount = credential.Authenticator.SignCount
 	if err := h.store.UpdateCredential(user); err != nil {
 		respondError(w, http.StatusInternalServerError, err)
 		return

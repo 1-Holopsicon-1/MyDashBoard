@@ -8,7 +8,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"MyDashBoard/internal/model"
@@ -29,7 +31,8 @@ func NewDocker(socketPath string) *DockerClient {
 			Timeout: 10 * time.Second,
 			Transport: &http.Transport{
 				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-					return net.DialTimeout("unix", socketPath, 5*time.Second)
+					dialer := &net.Dialer{Timeout: 5 * time.Second}
+					return dialer.DialContext(ctx, "unix", socketPath)
 				},
 			},
 		},
@@ -54,6 +57,11 @@ func (c *DockerClient) GetContainers(ctx context.Context, filters []string) ([]m
 		return nil, fmt.Errorf("connecting to Docker socket %s: %w", c.socketPath, err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("docker API error: %d %s", resp.StatusCode, string(body))
+	}
 
 	var containers []dockerContainer
 	if err := json.NewDecoder(resp.Body).Decode(&containers); err != nil {
@@ -104,32 +112,40 @@ func matchFilters(name string, filters []string) bool {
 	return false
 }
 
-// GetSimpleXLinks получает адреса SimpleX серверов из логов контейнеров.
-// Ищет строки "Server address:" в stdout/stderr логах.
 func (c *DockerClient) GetSimpleXLinks(ctx context.Context, filters []string) ([]model.SimplexLink, error) {
-	// Сначала получаем список контейнеров
 	containers, err := c.listAllContainers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	var links []model.SimplexLink
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	var allLinks []model.SimplexLink
 	for _, cont := range containers {
 		name := containerName(cont.Names)
 		if !matchFilters(name, filters) {
 			continue
 		}
 
-		containerLinks := c.parseServerAddresses(ctx, cont.ID, name)
-		links = append(links, containerLinks...)
+		wg.Add(1)
+		go func(contID, contName string) {
+			defer wg.Done()
+			callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
+			links := c.parseServerAddresses(callCtx, contID, contName)
+			mu.Lock()
+			allLinks = append(allLinks, links...)
+			mu.Unlock()
+		}(cont.ID, name)
 	}
+	wg.Wait()
 
-	return links, nil
+	return allLinks, nil
 }
 
 type dockerContainerFull struct {
-	ID     string   `json:"Id"`
-	Names  []string `json:"Names"`
+	ID    string   `json:"Id"`
+	Names []string `json:"Names"`
 }
 
 func (c *DockerClient) listAllContainers(ctx context.Context) ([]dockerContainerFull, error) {
@@ -142,6 +158,11 @@ func (c *DockerClient) listAllContainers(ctx context.Context) ([]dockerContainer
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("docker API error: %d %s", resp.StatusCode, string(body))
+	}
 
 	var containers []dockerContainerFull
 	if err := json.NewDecoder(resp.Body).Decode(&containers); err != nil {
@@ -163,17 +184,23 @@ func (c *DockerClient) parseServerAddresses(ctx context.Context, containerID, co
 	}
 	defer resp.Body.Close()
 
-	return parseAddressesFromLogs(resp.Body, containerName)
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+
+	links, err := parseAddressesFromLogs(resp.Body, containerName)
+	if err != nil {
+		return nil
+	}
+	return links
 }
 
-func parseAddressesFromLogs(r io.Reader, containerName string) []model.SimplexLink {
+func parseAddressesFromLogs(r io.Reader, containerName string) ([]model.SimplexLink, error) {
 	var links []model.SimplexLink
 	scanner := bufio.NewScanner(r)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		// Docker log format: header (8 bytes) + payload
-		// Ищем "Server address:" в строке
 		idx := strings.Index(line, "Server address:")
 		if idx == -1 {
 			continue
@@ -184,7 +211,6 @@ func parseAddressesFromLogs(r io.Reader, containerName string) []model.SimplexLi
 			continue
 		}
 
-		// Убираем ANSI escape коды если есть
 		addr = stripANSI(addr)
 
 		links = append(links, model.SimplexLink{
@@ -193,29 +219,15 @@ func parseAddressesFromLogs(r io.Reader, containerName string) []model.SimplexLi
 		})
 	}
 
-	return links
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("read log stream: %w", err)
+	}
+
+	return links, nil
 }
 
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]|\x1b\][^\x07]*(\x07|\x1b\\)|\x1b[()][AB0]`)
+
 func stripANSI(s string) string {
-	var result strings.Builder
-	i := 0
-	for i < len(s) {
-		if s[i] == '\x1b' {
-			// Skip escape sequence
-			i++
-			if i < len(s) && s[i] == '[' {
-				i++
-				for i < len(s) && !((s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z')) {
-					i++
-				}
-				if i < len(s) {
-					i++
-				}
-			}
-		} else {
-			result.WriteByte(s[i])
-			i++
-		}
-	}
-	return result.String()
+	return ansiRegex.ReplaceAllString(s, "")
 }

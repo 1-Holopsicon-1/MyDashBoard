@@ -2,8 +2,8 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"MyDashBoard/internal/model"
@@ -18,13 +18,11 @@ func NewHealthChecker(httpClient *http.Client) *HealthChecker {
 }
 
 func (c *HealthChecker) Check(ctx context.Context, name, url string) model.ServiceStatus {
-	checkURL := url + "/alive"
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, checkURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return model.ServiceStatus{
 			Name: name,
-			URL:  checkURL,
+			URL:  url,
 		}
 	}
 
@@ -34,7 +32,7 @@ func (c *HealthChecker) Check(ctx context.Context, name, url string) model.Servi
 
 	status := model.ServiceStatus{
 		Name: name,
-		URL:  checkURL,
+		URL:  url,
 	}
 
 	if err != nil {
@@ -50,17 +48,19 @@ func (c *HealthChecker) Check(ctx context.Context, name, url string) model.Servi
 }
 
 func (c *HealthChecker) CheckAll(ctx context.Context, targets map[string]string) []model.ServiceStatus {
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 	results := make([]model.ServiceStatus, 0, len(targets))
 	for name, url := range targets {
-		results = append(results, c.Check(ctx, name, url))
+		wg.Add(1)
+		go func(name, url string) {
+			defer wg.Done()
+			res := c.Check(ctx, name, url)
+			mu.Lock()
+			results = append(results, res)
+			mu.Unlock()
+		}(name, url)
 	}
+	wg.Wait()
 	return results
-}
-
-// Validate проверяет что URL доступен для запросов.
-func Validate(url string) error {
-	if url == "" {
-		return fmt.Errorf("URL is empty")
-	}
-	return nil
 }

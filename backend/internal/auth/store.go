@@ -16,7 +16,6 @@ type User struct {
 	ID         []byte `json:"id"`
 	Name       string `json:"name"`
 	Credential []byte `json:"credential"`
-	SignCount  uint32 `json:"sign_count"`
 }
 
 func (u *User) WebAuthnID() []byte          { return u.ID }
@@ -47,7 +46,6 @@ func (u *User) AddCredential(cred *webauthn.Credential) error {
 		return fmt.Errorf("marshal credentials: %w", err)
 	}
 	u.Credential = data
-	u.SignCount = cred.Authenticator.SignCount
 	return nil
 }
 
@@ -56,9 +54,8 @@ func (s *Store) AddCredential(userID []byte, cred *webauthn.Credential) error {
 	defer s.mu.Unlock()
 
 	var credentialBlob []byte
-	var signCount uint32
-	if err := s.db.QueryRow("SELECT credential, sign_count FROM users WHERE id = ?", userID).
-		Scan(&credentialBlob, &signCount); err != nil {
+	if err := s.db.QueryRow("SELECT credential FROM users WHERE id = ?", userID).
+		Scan(&credentialBlob); err != nil {
 		return fmt.Errorf("read credentials: %w", err)
 	}
 
@@ -75,15 +72,14 @@ func (s *Store) AddCredential(userID []byte, cred *webauthn.Credential) error {
 	}
 
 	if _, err := s.db.Exec(
-		"UPDATE users SET credential = ?, sign_count = ? WHERE id = ?",
-		data, cred.Authenticator.SignCount, userID,
+		"UPDATE users SET credential = ? WHERE id = ?",
+		data, userID,
 	); err != nil {
 		return fmt.Errorf("update credentials: %w", err)
 	}
 	return nil
 }
 
-// Store — SQLite-backed single-user credential store
 type Store struct {
 	db *sql.DB
 	mu sync.RWMutex
@@ -109,8 +105,7 @@ func NewStore(dbPath string) (*Store, error) {
 		CREATE TABLE IF NOT EXISTS users (
 			id         BLOB PRIMARY KEY,
 			name       TEXT NOT NULL,
-			credential BLOB NOT NULL,
-			sign_count INTEGER DEFAULT 0
+			credential BLOB NOT NULL
 		);
 		CREATE TABLE IF NOT EXISTS sessions (
 			id       TEXT PRIMARY KEY,
@@ -122,7 +117,53 @@ func NewStore(dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("creating tables: %w", err)
 	}
 
+	if err := migrateDropSignCount(db); err != nil {
+		return nil, fmt.Errorf("migrate drop sign_count: %w", err)
+	}
+
 	return &Store{db: db}, nil
+}
+
+func migrateDropSignCount(db *sql.DB) error {
+	rows, err := db.Query("PRAGMA table_info(users)")
+	if err != nil {
+		return fmt.Errorf("query table_info: %w", err)
+	}
+	defer rows.Close()
+
+	hasSignCount := false
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err != nil {
+			return fmt.Errorf("scan table_info: %w", err)
+		}
+		if name == "sign_count" {
+			hasSignCount = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate table_info: %w", err)
+	}
+
+	if !hasSignCount {
+		return nil
+	}
+
+	stmts := []string{
+		`CREATE TABLE users_new (id BLOB PRIMARY KEY, name TEXT NOT NULL, credential BLOB NOT NULL)`,
+		`INSERT OR IGNORE INTO users_new (id, name, credential) SELECT id, name, credential FROM users`,
+		`DROP TABLE users`,
+		`ALTER TABLE users_new RENAME TO users`,
+	}
+	for _, s := range stmts {
+		if _, err := db.Exec(s); err != nil {
+			return fmt.Errorf("exec migration step %q: %w", s, err)
+		}
+	}
+	return nil
 }
 
 func (s *Store) Close() error {
@@ -150,8 +191,8 @@ func (s *Store) GetUser() *User {
 func (s *Store) getUserLocked() *User {
 	u := &User{}
 	var id []byte
-	err := s.db.QueryRow("SELECT id, name, credential, sign_count FROM users LIMIT 1").
-		Scan(&id, &u.Name, &u.Credential, &u.SignCount)
+	err := s.db.QueryRow("SELECT id, name, credential FROM users LIMIT 1").
+		Scan(&id, &u.Name, &u.Credential)
 	if err != nil {
 		return nil
 	}
@@ -186,7 +227,7 @@ func (s *Store) CreateUserIfAbsent() (*User, error) {
 	}
 
 	_, err := s.db.Exec(
-		"INSERT INTO users (id, name, credential, sign_count) VALUES (?, ?, ?, 0)",
+		"INSERT INTO users (id, name, credential) VALUES (?, ?, ?)",
 		u.ID, u.Name, []byte{},
 	)
 	if err != nil {
@@ -206,7 +247,7 @@ func (s *Store) CreateUser(name string, id []byte) (*User, error) {
 	}
 
 	_, err := s.db.Exec(
-		"INSERT INTO users (id, name, credential, sign_count) VALUES (?, ?, ?, 0)",
+		"INSERT INTO users (id, name, credential) VALUES (?, ?, ?)",
 		u.ID, u.Name, []byte{},
 	)
 	if err != nil {
@@ -221,8 +262,8 @@ func (s *Store) UpdateCredential(user *User) error {
 	defer s.mu.Unlock()
 
 	_, err := s.db.Exec(
-		"UPDATE users SET credential = ?, sign_count = ? WHERE id = ?",
-		user.Credential, user.SignCount, user.ID,
+		"UPDATE users SET credential = ? WHERE id = ?",
+		user.Credential, user.ID,
 	)
 	return err
 }

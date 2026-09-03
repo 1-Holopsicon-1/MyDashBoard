@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -9,9 +10,15 @@ import (
 )
 
 func respondJSON(w http.ResponseWriter, status int, data any) {
+	buf := &bytes.Buffer{}
+	if err := json.NewEncoder(buf).Encode(data); err != nil {
+		log.Printf("json encode error: %v", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	w.Write(buf.Bytes())
 }
 
 func respondError(w http.ResponseWriter, code int, err error) {
