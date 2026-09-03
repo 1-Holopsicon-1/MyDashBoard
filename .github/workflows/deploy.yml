@@ -138,5 +138,6 @@ jobs:
             else
               COMPOSE="docker compose"
             fi
+            $COMPOSE -f "$DEPLOY_PATH/docker-compose.yml" down
             $COMPOSE -f "$DEPLOY_PATH/docker-compose.yml" pull
             $COMPOSE -f "$DEPLOY_PATH/docker-compose.yml" up -d
