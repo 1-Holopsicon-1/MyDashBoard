@@ -55,7 +55,7 @@
 	let loadContainersSeq = 0;
 	let loadSimplexSeq = 0;
 	let abortController = new AbortController();
-	let authKnown = false;
+	let authKnown = $state(false);
 
 	const showIP = $derived($authStatus.authenticated);
 
