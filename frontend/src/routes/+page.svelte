@@ -53,12 +53,18 @@
 	const showIP = $derived($authStatus.authenticated);
 
 	$effect(() => {
-		if (authKnown && $authStatus.authenticated) {
-			loadDevices();
-			loadServices();
-			loadContainers();
-			loadSimplex();
+		if (!authKnown) return;
+		if (!$authStatus.authenticated) {
+			devicesLoading.set(false);
+			servicesLoading.set(false);
+			containersLoading.set(false);
+			simplexLoading.set(false);
+			return;
 		}
+		loadDevices();
+		loadServices();
+		loadContainers();
+		loadSimplex();
 	});
 
 	$effect(() => {
@@ -183,6 +189,11 @@
 	</header>
 
 	<main>
+		{#if authKnown && !$authStatus.authenticated}
+			<div class="auth-prompt">
+				<p>Authentication required. Click the site title 5 times to login.</p>
+			</div>
+		{:else}
 		<!-- Network -->
 		<section>
 			<div class="section-header">
@@ -306,6 +317,7 @@
 			{/if}
 		{/if}
 	</section>
+		{/if}
 	</main>
 
 	<footer>
@@ -321,6 +333,13 @@
 		padding: 0 24px;
 		max-width: 1200px;
 		margin: 0 auto;
+	}
+
+	.auth-prompt {
+		text-align: center;
+		padding: 60px 20px;
+		color: var(--color-text-secondary);
+		font-family: var(--font-mono);
 	}
 
 	header {
