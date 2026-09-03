@@ -104,7 +104,9 @@ func (sm *SessionManager) ClearSession(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(sessionCookieName); err == nil {
 		parts := strings.Split(cookie.Value, ".")
 		if len(parts) == 4 {
-			_ = sm.store.DeleteSession(parts[0])
+			if err := sm.store.DeleteSession(parts[0]); err != nil {
+				log.Printf("warning: failed to delete session: %v", err)
+			}
 		}
 	}
 
@@ -121,8 +123,7 @@ func (sm *SessionManager) ClearSession(w http.ResponseWriter, r *http.Request) {
 
 func (sm *SessionManager) sign(sessionID, username string, exp int64) string {
 	mac := hmac.New(sha256.New, sm.secret)
-	mac.Write([]byte(fmt.Sprintf("%d:%s%d", len(username), username, exp)))
-	mac.Write([]byte(sessionID))
+	mac.Write([]byte(fmt.Sprintf("%d:%s%d:%d:%s", len(username), username, exp, len(sessionID), sessionID)))
 	return base64.URLEncoding.EncodeToString(mac.Sum(nil))
 }
 

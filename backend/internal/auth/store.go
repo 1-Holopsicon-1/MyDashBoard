@@ -51,6 +51,38 @@ func (u *User) AddCredential(cred *webauthn.Credential) error {
 	return nil
 }
 
+func (s *Store) AddCredential(userID []byte, cred *webauthn.Credential) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var credentialBlob []byte
+	var signCount uint32
+	if err := s.db.QueryRow("SELECT credential, sign_count FROM users WHERE id = ?", userID).
+		Scan(&credentialBlob, &signCount); err != nil {
+		return fmt.Errorf("read credentials: %w", err)
+	}
+
+	var creds []webauthn.Credential
+	if len(credentialBlob) > 0 {
+		if err := json.Unmarshal(credentialBlob, &creds); err != nil {
+			return fmt.Errorf("unmarshal credentials: %w", err)
+		}
+	}
+	creds = append(creds, *cred)
+	data, err := json.Marshal(creds)
+	if err != nil {
+		return fmt.Errorf("marshal credentials: %w", err)
+	}
+
+	if _, err := s.db.Exec(
+		"UPDATE users SET credential = ?, sign_count = ? WHERE id = ?",
+		data, cred.Authenticator.SignCount, userID,
+	); err != nil {
+		return fmt.Errorf("update credentials: %w", err)
+	}
+	return nil
+}
+
 // Store — SQLite-backed single-user credential store
 type Store struct {
 	db *sql.DB

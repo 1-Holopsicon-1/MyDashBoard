@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -59,7 +60,10 @@ func (h *AuthHandler) RegisterBegin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.setTempSession(w, session)
+	if err := h.setTempSession(w, session); err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	respondJSON(w, http.StatusOK, options)
 }
 
@@ -90,11 +94,7 @@ func (h *AuthHandler) RegisterFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := user.AddCredential(credential); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if err := h.store.UpdateCredential(user); err != nil {
+	if err := h.store.AddCredential(user.ID, credential); err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -123,7 +123,10 @@ func (h *AuthHandler) LoginBegin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.setTempSession(w, session)
+	if err := h.setTempSession(w, session); err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	respondJSON(w, http.StatusOK, options)
 }
 
@@ -192,7 +195,10 @@ func (h *AuthHandler) AddKeyBegin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.setTempSession(w, session)
+	if err := h.setTempSession(w, session); err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	respondJSON(w, http.StatusOK, options)
 }
 
@@ -223,11 +229,7 @@ func (h *AuthHandler) AddKeyFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := user.AddCredential(credential); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if err := h.store.UpdateCredential(user); err != nil {
+	if err := h.store.AddCredential(user.ID, credential); err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -236,8 +238,11 @@ func (h *AuthHandler) AddKeyFinish(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
-func (h *AuthHandler) setTempSession(w http.ResponseWriter, session *webauthn.SessionData) {
-	data, _ := json.Marshal(session)
+func (h *AuthHandler) setTempSession(w http.ResponseWriter, session *webauthn.SessionData) error {
+	data, err := json.Marshal(session)
+	if err != nil {
+		return fmt.Errorf("marshal temp session: %w", err)
+	}
 	encoded := base64.URLEncoding.EncodeToString(data)
 	sig := h.sessions.SignTemp(data)
 	value := encoded + "." + sig
@@ -250,6 +255,7 @@ func (h *AuthHandler) setTempSession(w http.ResponseWriter, session *webauthn.Se
 		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 	})
+	return nil
 }
 
 func (h *AuthHandler) getTempSession(r *http.Request) *webauthn.SessionData {
