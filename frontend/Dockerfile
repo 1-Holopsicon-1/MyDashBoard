@@ -10,5 +10,6 @@ RUN yarn build
 FROM caddy:2.8-alpine
 COPY --from=build /src/build /srv
 COPY Caddyfile /etc/caddy/Caddyfile
+RUN mkdir -p /data /config && chown -R caddy:caddy /data /config
 EXPOSE 8080
 USER caddy
