@@ -22,7 +22,7 @@
 	--color-active: rgba(124, 111, 255, 0.14);
 
 	/* Typography */
-	--font-mono: 'Outfit', sans-serif;
+	--font-mono: 'JetBrains Mono', monospace;
 	--font-body: 'Outfit', sans-serif;
 
 	/* Shape */
@@ -31,6 +31,8 @@
 	/* Shadows */
 	--shadow-card-hover: 0 8px 32px rgba(124, 111, 255, 0.15);
 	--shadow-btn: 0 0 12px rgba(124, 111, 255, 0.2);
+
+	--color-skeleton: rgba(255, 255, 255, 0.08);
 }
 
 :root[data-theme='glass'] body {
@@ -88,4 +90,9 @@
 /* Glow on online dots */
 :root[data-theme='glass'] .online {
 	box-shadow: 0 0 10px rgba(111, 239, 255, 0.5);
+}
+
+/* Skeleton uses distinct surface for visibility */
+:root[data-theme='glass'] .skeleton {
+	background: var(--color-skeleton);
 }

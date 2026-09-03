@@ -18,6 +18,7 @@
 		<button
 			class="btn"
 			class:active={$theme === t.id}
+			aria-pressed={$theme === t.id}
 			onclick={() => setTheme(t.id)}
 		>
 			{t.label}
@@ -44,7 +45,7 @@
 		font-family: var(--font-mono);
 		font-size: 0.75rem;
 		cursor: pointer;
-		transition: all 0.2s ease;
+		transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 		letter-spacing: 0.02em;
 		text-transform: uppercase;
 	}

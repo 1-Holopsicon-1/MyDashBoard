@@ -7,6 +7,10 @@
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 
+	$effect(() => {
+		if (showAuth) error = '';
+	});
+
 	async function checkStatus() {
 		try {
 			const status = await fetchAuthStatus();
@@ -17,6 +21,10 @@
 	}
 
 	async function register() {
+		if (typeof PublicKeyCredential === 'undefined') {
+			error = 'WebAuthn is not supported in this browser';
+			return;
+		}
 		loading = true;
 		error = null;
 		try {
@@ -34,6 +42,10 @@
 	}
 
 	async function login() {
+		if (typeof PublicKeyCredential === 'undefined') {
+			error = 'WebAuthn is not supported in this browser';
+			return;
+		}
 		loading = true;
 		error = null;
 		try {
@@ -51,15 +63,22 @@
 	}
 
 	async function logout() {
+		loading = true;
 		try {
 			await authLogout();
 			await checkStatus();
 		} catch {
-			// ignore
+			error = 'Logout failed — session may still be active';
+		} finally {
+			loading = false;
 		}
 	}
 
 	async function addKey() {
+		if (typeof PublicKeyCredential === 'undefined') {
+			error = 'WebAuthn is not supported in this browser';
+			return;
+		}
 		loading = true;
 		error = null;
 		try {
@@ -153,29 +172,29 @@
 	{#if !$authStatus.registered}
 		<div class="auth-form">
 			<h3>Register Passkey</h3>
-			<button onclick={register} disabled={loading}>
-				{loading ? 'Waiting...' : 'Register'}
-			</button>
-		</div>
-	{:else if !$authStatus.authenticated}
-		<div class="auth-form">
-			<h3>Authenticate</h3>
-			<p class="hint">Use your passkey to access full dashboard</p>
-			<button onclick={login} disabled={loading}>
-				{loading ? 'Waiting...' : 'Login with Passkey'}
-			</button>
-		</div>
-	{:else}
-		<div class="auth-info">
-			<span class="auth-badge">authenticated</span>
-			<button class="add-key-btn" onclick={addKey} disabled={loading}>Add Key</button>
-			<button class="logout-btn" onclick={logout}>Logout</button>
-		</div>
-	{/if}
+		<button onclick={register} disabled={loading} aria-busy={loading}>
+			{loading ? 'Waiting...' : 'Register'}
+		</button>
+	</div>
+{:else if !$authStatus.authenticated}
+	<div class="auth-form">
+		<h3>Authenticate</h3>
+		<p class="hint">Use your passkey to access full dashboard</p>
+		<button onclick={login} disabled={loading} aria-busy={loading}>
+			{loading ? 'Waiting...' : 'Login with Passkey'}
+		</button>
+	</div>
+{:else}
+	<div class="auth-info">
+		<span class="auth-badge">authenticated</span>
+		<button class="add-key-btn" onclick={addKey} disabled={loading} aria-busy={loading}>Add Key</button>
+		<button class="logout-btn" onclick={logout} disabled={loading} aria-busy={loading}>Logout</button>
+	</div>
+{/if}
 
-	{#if error}
-		<p class="error">{error}</p>
-	{/if}
+{#if error}
+	<p class="error" role="alert">{error}</p>
+{/if}
 </div>
 {/if}
 
@@ -215,7 +234,7 @@
 		font-family: var(--font-mono);
 		font-size: 0.8rem;
 		cursor: pointer;
-		transition: all 0.2s ease;
+		transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 		text-transform: uppercase;
 	}
 

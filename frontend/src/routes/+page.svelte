@@ -38,13 +38,6 @@
 		}
 	}
 
-	function handleLogoKey(e: KeyboardEvent) {
-		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
-			handleLogoClick();
-		}
-	}
-
 	let devicesTimer: ReturnType<typeof setInterval>;
 	let servicesTimer: ReturnType<typeof setInterval>;
 	let containersTimer: ReturnType<typeof setInterval>;
@@ -173,7 +166,7 @@
 
 <div class="layout">
 	<header>
-		<span class="logo" role="button" tabindex="0" onclick={handleLogoClick} onkeydown={handleLogoKey}>holopsicon.ru</span>
+		<button class="logo" onclick={handleLogoClick}>holopsicon.ru</button>
 		<div class="header-right">
 			<LoginCard {showAuth} />
 			<ThemeSwitcher />
@@ -192,25 +185,28 @@
 				{/if}
 			</div>
 
+		{#if $devicesError && $devices.length === 0}
+			<div class="error-block" role="alert">
+				<span class="error-icon">!</span>
+				<span>{$devicesError}</span>
+			</div>
+		{:else if $devicesLoading && $devices.length === 0}
+			<div class="grid">
+				{#each Array(4) as _, i (i)}
+					<div class="skeleton card"></div>
+				{/each}
+			</div>
+		{:else}
+			<div class="grid">
+				{#each $devices as device (device.id)}
+					<DeviceCard {device} showIP={showIP} />
+				{/each}
+			</div>
 			{#if $devicesError}
-				<div class="error-block">
-					<span class="error-icon">!</span>
-					<span>{$devicesError}</span>
-				</div>
-			{:else if $devicesLoading}
-				<div class="grid">
-					{#each Array(4) as _}
-						<div class="skeleton card"></div>
-					{/each}
-				</div>
-			{:else}
-				<div class="grid">
-					{#each $devices as device (device.id)}
-						<DeviceCard {device} showIP={showIP} />
-					{/each}
-				</div>
+				<div class="error-banner" role="alert">{$devicesError}</div>
 			{/if}
-		</section>
+		{/if}
+	</section>
 
 		<!-- Containers -->
 		<section>
@@ -223,25 +219,28 @@
 				{/if}
 			</div>
 
+		{#if $containersError && $containers.length === 0}
+			<div class="error-block" role="alert">
+				<span class="error-icon">!</span>
+				<span>{$containersError}</span>
+			</div>
+		{:else if $containersLoading && $containers.length === 0}
+			<div class="grid">
+				{#each Array(2) as _, i (i)}
+					<div class="skeleton card"></div>
+				{/each}
+			</div>
+		{:else}
+			<div class="grid">
+				{#each $containers as container (container.name)}
+					<ContainerCard {container} />
+				{/each}
+			</div>
 			{#if $containersError}
-				<div class="error-block">
-					<span class="error-icon">!</span>
-					<span>{$containersError}</span>
-				</div>
-			{:else if $containersLoading}
-				<div class="grid">
-					{#each Array(2) as _}
-						<div class="skeleton card"></div>
-					{/each}
-				</div>
-			{:else}
-				<div class="grid">
-					{#each $containers as container (container.name)}
-						<ContainerCard {container} />
-					{/each}
-				</div>
+				<div class="error-banner" role="alert">{$containersError}</div>
 			{/if}
-		</section>
+		{/if}
+	</section>
 
 		<!-- SimpleX Links -->
 		{#if $authStatus.authenticated && $simplexLinks.length > 0}
@@ -251,14 +250,17 @@
 					<span class="badge count-badge">{$simplexLinks.length} servers</span>
 				</div>
 
+			{#if $simplexError && $simplexLinks.length === 0}
+				<div class="error-block" role="alert">
+					<span class="error-icon">!</span>
+					<span>{$simplexError}</span>
+				</div>
+			{:else}
+				<SimplexLinks links={$simplexLinks} />
 				{#if $simplexError}
-					<div class="error-block">
-						<span class="error-icon">!</span>
-						<span>{$simplexError}</span>
-					</div>
-				{:else}
-					<SimplexLinks links={$simplexLinks} />
+					<div class="error-banner" role="alert">{$simplexError}</div>
 				{/if}
+			{/if}
 			</section>
 		{/if}
 
@@ -273,25 +275,28 @@
 				{/if}
 			</div>
 
+		{#if $servicesError && $services.length === 0}
+			<div class="error-block" role="alert">
+				<span class="error-icon">!</span>
+				<span>{$servicesError}</span>
+			</div>
+		{:else if $servicesLoading && $services.length === 0}
+			<div class="grid">
+				{#each Array(2) as _, i (i)}
+					<div class="skeleton card"></div>
+				{/each}
+			</div>
+		{:else}
+			<div class="grid">
+				{#each $services as service (service.name)}
+					<ServiceCard {service} />
+				{/each}
+			</div>
 			{#if $servicesError}
-				<div class="error-block">
-					<span class="error-icon">!</span>
-					<span>{$servicesError}</span>
-				</div>
-			{:else if $servicesLoading}
-				<div class="grid">
-					{#each Array(2) as _}
-						<div class="skeleton card"></div>
-					{/each}
-				</div>
-			{:else}
-				<div class="grid">
-					{#each $services as service (service.name)}
-						<ServiceCard {service} />
-					{/each}
-				</div>
+				<div class="error-banner" role="alert">{$servicesError}</div>
 			{/if}
-		</section>
+		{/if}
+	</section>
 	</main>
 
 	<footer>
@@ -324,6 +329,12 @@
 	}
 
 	.logo {
+		background: none;
+		border: none;
+		padding: 0;
+		font: inherit;
+		color: inherit;
+		cursor: pointer;
 		font-family: var(--font-mono);
 		font-size: 1.1rem;
 		font-weight: 700;
@@ -422,6 +433,16 @@
 		font-weight: 700;
 		font-size: 0.75rem;
 		flex-shrink: 0;
+	}
+
+	.error-banner {
+		padding: 10px 14px;
+		border: 1px solid var(--color-offline);
+		border-radius: var(--radius, 0);
+		background: var(--color-surface);
+		color: var(--color-offline);
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
 	}
 
 	footer {
