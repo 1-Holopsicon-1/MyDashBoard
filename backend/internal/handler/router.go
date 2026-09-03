@@ -16,30 +16,35 @@ func NewRouter(
 	simplex *SimplexHandler,
 	authHandler *AuthHandler,
 	sessions *auth.SessionManager,
+	allowedOrigin string,
 ) chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.CORS)
+	r.Use(middleware.CORS(allowedOrigin))
 	r.Use(middleware.Auth(sessions))
 
-	// Public
 	r.Get("/health", HandleHealth)
-	r.Get("/api/auth/status", authHandler.Status)
-	r.Post("/api/auth/register-begin", authHandler.RegisterBegin)
-	r.Post("/api/auth/register-finish", authHandler.RegisterFinish)
-	r.Post("/api/auth/login-begin", authHandler.LoginBegin)
-	r.Post("/api/auth/login-finish", authHandler.LoginFinish)
-	r.Post("/api/auth/logout", authHandler.Logout)
-	r.Post("/api/auth/add-key-begin", authHandler.AddKeyBegin)
-	r.Post("/api/auth/add-key-finish", authHandler.AddKeyFinish)
 
-	// Data endpoints
-	r.Get("/api/tailscale/devices", tailscale.GetDevices)
-	r.Get("/api/services", services.GetStatus)
-	r.Get("/api/containers", containers.GetStatus)
-	r.Get("/api/simplex/links", simplex.GetLinks)
+	r.Route("/api/auth", func(r chi.Router) {
+		r.Get("/status", authHandler.Status)
+		r.Post("/register-begin", authHandler.RegisterBegin)
+		r.Post("/register-finish", authHandler.RegisterFinish)
+		r.Post("/login-begin", authHandler.LoginBegin)
+		r.Post("/login-finish", authHandler.LoginFinish)
+		r.Post("/logout", authHandler.Logout)
+		r.With(middleware.AuthRequired).Post("/add-key-begin", authHandler.AddKeyBegin)
+		r.With(middleware.AuthRequired).Post("/add-key-finish", authHandler.AddKeyFinish)
+	})
+
+	r.Route("/api", func(r chi.Router) {
+		r.Use(middleware.AuthRequired)
+		r.Get("/tailscale/devices", tailscale.GetDevices)
+		r.Get("/services", services.GetStatus)
+		r.Get("/containers", containers.GetStatus)
+		r.Get("/simplex/links", simplex.GetLinks)
+	})
 
 	return r
 }

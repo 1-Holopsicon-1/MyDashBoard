@@ -62,7 +62,7 @@ func main() {
 	containersHandler := handler.NewContainers(containerSvc)
 	simplexHandler := handler.NewSimplex(simplexSvc)
 
-	router := handler.NewRouter(tailscaleHandler, servicesHandler, containersHandler, simplexHandler, authHandler, sessions)
+	router := handler.NewRouter(tailscaleHandler, servicesHandler, containersHandler, simplexHandler, authHandler, sessions, cfg.WebAuthnOrigin)
 
 	log.Printf("Starting server on %s", cfg.ListenAddr)
 	if err := http.ListenAndServe(cfg.ListenAddr, router); err != nil {

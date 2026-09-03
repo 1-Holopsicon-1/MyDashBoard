@@ -25,3 +25,13 @@ func IsAuthenticated(r *http.Request) bool {
 	val, _ := r.Context().Value(authKey).(bool)
 	return val
 }
+
+func AuthRequired(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !IsAuthenticated(r) {
+			http.Error(w, `{"error":"authentication required"}`, http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
