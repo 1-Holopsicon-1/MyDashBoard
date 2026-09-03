@@ -133,5 +133,10 @@ jobs:
             ENVEOF
 
             # Pull and restart
-            docker compose -f $DEPLOY_PATH/docker-compose.yml pull
-            docker compose -f $DEPLOY_PATH/docker-compose.yml up -d
+            if command -v docker-compose &>/dev/null; then
+              COMPOSE="docker-compose"
+            else
+              COMPOSE="docker compose"
+            fi
+            $COMPOSE -f "$DEPLOY_PATH/docker-compose.yml" pull
+            $COMPOSE -f "$DEPLOY_PATH/docker-compose.yml" up -d
