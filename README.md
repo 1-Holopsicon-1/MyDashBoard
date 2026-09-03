@@ -79,9 +79,9 @@ yarn dev
 | `VAULTWARDEN_URL` | — | URL Vaultwarden для проверки |
 | `DOCKER_SOCKET` | `/var/run/docker.sock` | Путь к Docker-сокету |
 | `CONTAINER_FILTERS` | `amnezia,simplex` | Фильтры контейнеров (через запятую) |
-| `SESSION_SECRET` | автогенерация | HMAC-ключ для подписи сессионных cookie |
+| `SESSION_SECRET` | автогенерация | HMAC-ключ для подписи сессионных cookie. **Обязателен в продакшене** (когда `WEBAUTHN_RP_ID != localhost`). Сгенерировать: `openssl rand -base64 32` |
 | `WEBAUTHN_RP_ID` | `localhost` | WebAuthn Relying Party ID (ваш домен) |
-| `WEBAUTHN_ORIGIN` | `http://localhost:5173` | WebAuthn origin URL |
+| `WEBAUTHN_ORIGIN` | `http://localhost:5173` | WebAuthn origin URL. CORS allowed origin выводится из этой переменной автоматически |
 | `DB_PATH` | `dashboard.db` | Путь к файлу SQLite |
 
 ### Для Docker-деплоя
@@ -90,14 +90,18 @@ yarn dev
 - `WEBAUTHN_RP_ID=holopsicon.ru`
 - `WEBAUTHN_ORIGIN=https://holopsicon.ru`
 - `DB_PATH=/app/data/dashboard.db`
+- `SESSION_SECRET=<сгенерируйте openssl rand -base64 32>`
+
+> **Безопасность Docker-сокета:** Бэкенд монтирует `/var/run/docker.sock` для мониторинга контейнеров. Это даёт root-доступ к хосту. Для усиленной безопасности используйте [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy) для доступа только к read-only эндпоинтам.
 
 ## Авторизация
 
 Однопользовательская авторизация через passkey. При первом запуске панель регистрации скрыта — активируйте её, нажав на название сайта 5 раз за 10 секунд. После входа можно добавить дополнительные ключи через кнопку "Add Key".
 
 - Credentials WebAuthn хранятся в SQLite (персистентность через Docker volume)
-- Сессии — HMAC-подписанные cookie (7 дней, HttpOnly, Secure, SameSite=Strict)
+- Сессии — HMAC-подписанные cookie (7 дней, HttpOnly, Secure, SameSite=Strict) с server-side revocation через SQLite
 - IP устройств Tailscale видны только авторизованным пользователям
+- В продакшене `SESSION_SECRET` должен быть установлен явно — иначе сервер не запустится
 
 ## Структура проекта
 
