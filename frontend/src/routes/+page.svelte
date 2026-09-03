@@ -55,7 +55,24 @@
 	$effect(() => {
 		if (authKnown && $authStatus.authenticated) {
 			loadDevices();
+			loadServices();
+			loadContainers();
+			loadSimplex();
 		}
+	});
+
+	$effect(() => {
+		if (!authKnown || !$authStatus.authenticated) return;
+		devicesTimer = setInterval(loadDevices, 30_000);
+		servicesTimer = setInterval(loadServices, 60_000);
+		containersTimer = setInterval(loadContainers, 30_000);
+		simplexTimer = setInterval(loadSimplex, 60_000);
+		return () => {
+			clearInterval(devicesTimer);
+			clearInterval(servicesTimer);
+			clearInterval(containersTimer);
+			clearInterval(simplexTimer);
+		};
 	});
 
 	async function loadAuth() {
@@ -136,14 +153,6 @@
 
 	onMount(async () => {
 		await loadAuth();
-		loadDevices();
-		loadServices();
-		loadContainers();
-		loadSimplex();
-		devicesTimer = setInterval(loadDevices, 30_000);
-		servicesTimer = setInterval(loadServices, 60_000);
-		containersTimer = setInterval(loadContainers, 30_000);
-		simplexTimer = setInterval(loadSimplex, 60_000);
 	});
 
 	onDestroy(() => {
