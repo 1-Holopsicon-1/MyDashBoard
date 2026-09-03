@@ -6,10 +6,11 @@ COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /server ./cmd/server
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates wget
+RUN apk add --no-cache ca-certificates wget su-exec
 WORKDIR /app
 COPY --from=build /server ./server
-RUN adduser -D -u 10001 app && chown -R app /app
-USER app
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN adduser -D -u 10001 app && mkdir -p /app/data && chown -R app:app /app && chmod +x /docker-entrypoint.sh
 EXPOSE 8081
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["./server"]
