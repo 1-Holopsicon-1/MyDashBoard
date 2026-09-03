@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -30,7 +31,7 @@ func NewAuth(wn *webauthn.WebAuthn, store *auth.Store, sessions *auth.SessionMan
 func (h *AuthHandler) Status(w http.ResponseWriter, r *http.Request) {
 	registered, err := h.store.HasUser()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]bool{
@@ -45,23 +46,23 @@ func (h *AuthHandler) RegisterBegin(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.store.CreateUserIfAbsent()
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	if len(user.Credential) > 0 {
-		respondError(w, http.StatusConflict, "user already registered")
+		respondError(w, http.StatusConflict, errors.New("user already registered"))
 		return
 	}
 
 	options, session, err := h.webauthn.BeginRegistration(user)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	if err := h.setTempSession(w, session); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, options)
@@ -73,35 +74,35 @@ func (h *AuthHandler) RegisterFinish(w http.ResponseWriter, r *http.Request) {
 
 	user := h.store.GetUser()
 	if user == nil {
-		respondError(w, http.StatusBadRequest, "no registration in progress")
+		respondError(w, http.StatusBadRequest, errors.New("no registration in progress"))
 		return
 	}
 
 	if len(user.Credential) > 0 {
-		respondError(w, http.StatusConflict, "user already registered")
+		respondError(w, http.StatusConflict, errors.New("user already registered"))
 		return
 	}
 
 	session := h.getTempSession(r)
 	if session == nil {
-		respondError(w, http.StatusBadRequest, "no registration session")
+		respondError(w, http.StatusBadRequest, errors.New("no registration session"))
 		return
 	}
 
 	credential, err := h.webauthn.FinishRegistration(user, *session, r)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	if err := h.store.AddCredential(user.ID, credential); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	h.clearTempSession(w)
 	if err := h.sessions.SetSession(w, user.Name); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]bool{"success": true})
@@ -113,18 +114,18 @@ func (h *AuthHandler) LoginBegin(w http.ResponseWriter, r *http.Request) {
 
 	user := h.store.GetUser()
 	if user == nil {
-		respondError(w, http.StatusNotFound, "no user registered")
+		respondError(w, http.StatusNotFound, errors.New("no user registered"))
 		return
 	}
 
 	options, session, err := h.webauthn.BeginLogin(user)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	if err := h.setTempSession(w, session); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, options)
@@ -136,31 +137,31 @@ func (h *AuthHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 
 	user := h.store.GetUser()
 	if user == nil {
-		respondError(w, http.StatusNotFound, "no user registered")
+		respondError(w, http.StatusNotFound, errors.New("no user registered"))
 		return
 	}
 
 	session := h.getTempSession(r)
 	if session == nil {
-		respondError(w, http.StatusBadRequest, "no login session")
+		respondError(w, http.StatusBadRequest, errors.New("no login session"))
 		return
 	}
 
 	credential, err := h.webauthn.FinishLogin(user, *session, r)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	user.SignCount = credential.Authenticator.SignCount
 	if err := h.store.UpdateCredential(user); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	h.clearTempSession(w)
 	if err := h.sessions.SetSession(w, user.Name); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, map[string]bool{"success": true})
@@ -179,24 +180,24 @@ func (h *AuthHandler) AddKeyBegin(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	if !IsAuthenticated(r) {
-		respondError(w, http.StatusUnauthorized, "not authenticated")
+		respondError(w, http.StatusUnauthorized, errors.New("not authenticated"))
 		return
 	}
 
 	user := h.store.GetUser()
 	if user == nil {
-		respondError(w, http.StatusNotFound, "no user registered")
+		respondError(w, http.StatusNotFound, errors.New("no user registered"))
 		return
 	}
 
 	options, session, err := h.webauthn.BeginRegistration(user)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	if err := h.setTempSession(w, session); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 	respondJSON(w, http.StatusOK, options)
@@ -207,30 +208,30 @@ func (h *AuthHandler) AddKeyFinish(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
 	if !IsAuthenticated(r) {
-		respondError(w, http.StatusUnauthorized, "not authenticated")
+		respondError(w, http.StatusUnauthorized, errors.New("not authenticated"))
 		return
 	}
 
 	user := h.store.GetUser()
 	if user == nil {
-		respondError(w, http.StatusNotFound, "no user registered")
+		respondError(w, http.StatusNotFound, errors.New("no user registered"))
 		return
 	}
 
 	session := h.getTempSession(r)
 	if session == nil {
-		respondError(w, http.StatusBadRequest, "no registration session")
+		respondError(w, http.StatusBadRequest, errors.New("no registration session"))
 		return
 	}
 
 	credential, err := h.webauthn.FinishRegistration(user, *session, r)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, err.Error())
+		respondError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	if err := h.store.AddCredential(user.ID, credential); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		respondError(w, http.StatusInternalServerError, err)
 		return
 	}
 

@@ -18,7 +18,7 @@ func NewContainers(svc *service.ContainerService) *ContainersHandler {
 func (h *ContainersHandler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	containers, err := h.svc.GetContainers(r.Context())
 	if err != nil {
-		respondError(w, http.StatusBadGateway, err.Error())
+		respondError(w, http.StatusBadGateway, err)
 		return
 	}
 	if containers == nil {

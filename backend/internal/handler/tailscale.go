@@ -17,7 +17,7 @@ func NewTailscale(svc *service.TailscaleService) *TailscaleHandler {
 func (h *TailscaleHandler) GetDevices(w http.ResponseWriter, r *http.Request) {
 	devices, err := h.svc.GetDevices(r.Context())
 	if err != nil {
-		respondError(w, http.StatusBadGateway, err.Error())
+		respondError(w, http.StatusBadGateway, err)
 		return
 	}
 

@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-webauthn/webauthn/webauthn"
@@ -29,7 +32,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}
-	defer store.Close()
 
 	sessions, err := auth.NewSessionManager(cfg.SessionSecret, store)
 	if err != nil {
@@ -71,8 +73,36 @@ func main() {
 
 	router := handler.NewRouter(tailscaleHandler, servicesHandler, containersHandler, simplexHandler, authHandler, sessions, cfg.WebAuthnOrigin)
 
+	srv := &http.Server{
+		Addr:              cfg.ListenAddr,
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server failed: %v", err)
+		}
+	}()
+
 	log.Printf("Starting server on %s", cfg.ListenAddr)
-	if err := http.ListenAndServe(cfg.ListenAddr, router); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	<-ctx.Done()
+	log.Println("shutting down...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("shutdown error: %v", err)
+	}
+
+	if err := store.Close(); err != nil {
+		log.Printf("store close error: %v", err)
 	}
 }
