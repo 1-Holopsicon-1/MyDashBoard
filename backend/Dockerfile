@@ -3,11 +3,13 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -o /server ./cmd/server
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /server ./cmd/server
 
-FROM alpine:3.23
-RUN apk add --no-cache ca-certificates
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates wget
 WORKDIR /app
 COPY --from=build /server ./server
+RUN adduser -D -u 10001 app && chown -R app /app
+USER app
 EXPOSE 8081
 CMD ["./server"]
