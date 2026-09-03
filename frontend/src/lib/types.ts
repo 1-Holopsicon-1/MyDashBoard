@@ -36,3 +36,25 @@ export interface AuthStatus {
 }
 
 export type Theme = 'terminal' | 'minimal' | 'glass';
+
+export interface RegistrationCredentialJSON {
+	id: string;
+	rawId: string;
+	type: string;
+	response: {
+		attestationObject: string;
+		clientDataJSON: string;
+	};
+}
+
+export interface AuthenticationCredentialJSON {
+	id: string;
+	rawId: string;
+	type: string;
+	response: {
+		authenticatorData: string;
+		clientDataJSON: string;
+		signature: string;
+		userHandle: string | null;
+	};
+}

@@ -50,76 +50,99 @@
 	let containersTimer: ReturnType<typeof setInterval>;
 	let simplexTimer: ReturnType<typeof setInterval>;
 
+	let loadDevicesSeq = 0;
+	let loadServicesSeq = 0;
+	let loadContainersSeq = 0;
+	let loadSimplexSeq = 0;
+	let abortController = new AbortController();
+	let authKnown = false;
+
 	const showIP = $derived($authStatus.authenticated);
 
-	// Перезагрузить devices при изменении статуса авторизации
 	$effect(() => {
-		if ($authStatus.authenticated) {
+		if (authKnown && $authStatus.authenticated) {
 			loadDevices();
 		}
 	});
 
 	async function loadAuth() {
 		try {
-			const status = await fetchAuthStatus();
+			const status = await fetchAuthStatus(abortController.signal);
 			authStatus.set(status);
 		} catch { /* ignore */ }
+		authKnown = true;
 	}
 
 	async function loadDevices() {
+		const seq = ++loadDevicesSeq;
 		devicesError.set(null);
 		try {
-			const data = await fetchDevices();
+			const data = await fetchDevices(abortController.signal);
+			if (seq !== loadDevicesSeq) return;
 			devices.set(data);
 			lastUpdated.set(new Date());
 		} catch (e) {
+			if (seq !== loadDevicesSeq) return;
+			if (e instanceof DOMException && e.name === 'AbortError') return;
 			devicesError.set(e instanceof Error ? e.message : 'Failed to load devices');
 		} finally {
-			devicesLoading.set(false);
+			if (seq === loadDevicesSeq) devicesLoading.set(false);
 		}
 	}
 
 	async function loadServices() {
+		const seq = ++loadServicesSeq;
 		servicesError.set(null);
 		try {
-			const data = await fetchServices();
+			const data = await fetchServices(abortController.signal);
+			if (seq !== loadServicesSeq) return;
 			services.set(data);
 			lastUpdated.set(new Date());
 		} catch (e) {
+			if (seq !== loadServicesSeq) return;
+			if (e instanceof DOMException && e.name === 'AbortError') return;
 			servicesError.set(e instanceof Error ? e.message : 'Failed to load services');
 		} finally {
-			servicesLoading.set(false);
+			if (seq === loadServicesSeq) servicesLoading.set(false);
 		}
 	}
 
 	async function loadContainers() {
+		const seq = ++loadContainersSeq;
 		containersError.set(null);
 		try {
-			const data = await fetchContainers();
+			const data = await fetchContainers(abortController.signal);
+			if (seq !== loadContainersSeq) return;
 			containers.set(data);
 			lastUpdated.set(new Date());
 		} catch (e) {
+			if (seq !== loadContainersSeq) return;
+			if (e instanceof DOMException && e.name === 'AbortError') return;
 			containersError.set(e instanceof Error ? e.message : 'Failed to load containers');
 		} finally {
-			containersLoading.set(false);
+			if (seq === loadContainersSeq) containersLoading.set(false);
 		}
 	}
 
 	async function loadSimplex() {
+		const seq = ++loadSimplexSeq;
 		simplexError.set(null);
 		try {
-			const data = await fetchSimplexLinks();
+			const data = await fetchSimplexLinks(abortController.signal);
+			if (seq !== loadSimplexSeq) return;
 			simplexLinks.set(data);
 			lastUpdated.set(new Date());
 		} catch (e) {
+			if (seq !== loadSimplexSeq) return;
+			if (e instanceof DOMException && e.name === 'AbortError') return;
 			simplexError.set(e instanceof Error ? e.message : 'Failed to load SimpleX links');
 		} finally {
-			simplexLoading.set(false);
+			if (seq === loadSimplexSeq) simplexLoading.set(false);
 		}
 	}
 
-	onMount(() => {
-		loadAuth();
+	onMount(async () => {
+		await loadAuth();
 		loadDevices();
 		loadServices();
 		loadContainers();
@@ -131,6 +154,7 @@
 	});
 
 	onDestroy(() => {
+		abortController.abort();
 		clearInterval(devicesTimer);
 		clearInterval(servicesTimer);
 		clearInterval(containersTimer);

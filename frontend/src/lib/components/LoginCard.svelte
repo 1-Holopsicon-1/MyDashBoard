@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { authStatus } from '$lib/stores';
 	import { fetchAuthStatus, authRegisterBegin, authRegisterFinish, authLoginBegin, authLoginFinish, authLogout, authAddKeyBegin, authAddKeyFinish } from '$lib/api';
+	import type { RegistrationCredentialJSON, AuthenticationCredentialJSON } from '$lib/types';
 
 	let { showAuth = false }: { showAuth?: boolean } = $props();
 	let loading = $state(false);
@@ -67,6 +68,7 @@
 			const credential = await navigator.credentials.create({ publicKey: pkOptions as unknown as PublicKeyCredentialCreationOptions });
 			if (!credential) throw new Error('No credential returned');
 			await authAddKeyFinish(encodeRegistration(credential as PublicKeyCredential));
+			await checkStatus();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Add key failed';
 		} finally {
@@ -101,7 +103,7 @@
 		return result;
 	}
 
-	function encodeRegistration(cred: PublicKeyCredential) {
+	function encodeRegistration(cred: PublicKeyCredential): RegistrationCredentialJSON {
 		const r = cred.response as AuthenticatorAttestationResponse;
 		return {
 			id: cred.id,
@@ -114,7 +116,7 @@
 		};
 	}
 
-	function encodeLogin(cred: PublicKeyCredential) {
+	function encodeLogin(cred: PublicKeyCredential): AuthenticationCredentialJSON {
 		const r = cred.response as AuthenticatorAssertionResponse;
 		return {
 			id: cred.id,
@@ -130,10 +132,10 @@
 	}
 
 	function bufToB64(buf: ArrayBuffer): string {
-		return btoa(String.fromCharCode(...new Uint8Array(buf)))
-			.replace(/\+/g, '-')
-			.replace(/\//g, '_')
-			.replace(/=+$/, '');
+		const bytes = new Uint8Array(buf);
+		let binary = '';
+		for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+		return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 	}
 
 	function b64ToBuf(b64: string): ArrayBuffer {
