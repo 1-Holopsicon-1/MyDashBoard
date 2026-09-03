@@ -39,11 +39,10 @@ func NewRouter(
 	})
 
 	r.Route("/api", func(r chi.Router) {
-		r.Use(middleware.AuthRequired)
 		r.Get("/tailscale/devices", tailscale.GetDevices)
 		r.Get("/services", services.GetStatus)
 		r.Get("/containers", containers.GetStatus)
-		r.Get("/simplex/links", simplex.GetLinks)
+		r.With(middleware.AuthRequired).Get("/simplex/links", simplex.GetLinks)
 	})
 
 	return r
