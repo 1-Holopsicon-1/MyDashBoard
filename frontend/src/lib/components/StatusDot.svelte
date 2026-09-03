@@ -44,15 +44,4 @@
 	.offline .ping {
 		background: var(--color-offline, #ff3333);
 	}
-
-	@keyframes pulse {
-		0% {
-			transform: scale(1);
-			opacity: 0.6;
-		}
-		100% {
-			transform: scale(2.8);
-			opacity: 0;
-		}
-	}
 </style>

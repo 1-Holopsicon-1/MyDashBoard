@@ -316,6 +316,13 @@
 
 <style>
 	.layout {
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
+		padding: 0 24px;
+		max-width: 1200px;
+		margin: 0 auto;
+	}
 
 	header {
 		display: flex;
@@ -407,11 +414,6 @@
 		animation: shimmer 1.5s ease-in-out infinite alternate;
 	}
 
-	@keyframes shimmer {
-		from { opacity: 0.5; }
-		to { opacity: 1; }
-	}
-
 	.error-block {
 		display: flex;
 		align-items: center;
@@ -459,14 +461,7 @@
 	}
 
 	@media (max-width: 600px) {
-	.layout {
-		display: flex;
-		flex-direction: column;
-		min-height: 100vh;
-		padding: 0 24px;
-		max-width: 1200px;
-		margin: 0 auto;
-	}
+		.layout {
 			padding: 0 16px;
 		}
 
