@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/go-webauthn/webauthn/webauthn"
 
@@ -27,28 +27,29 @@ func NewAuth(wn *webauthn.WebAuthn, store *auth.Store, sessions *auth.SessionMan
 
 // GET /api/auth/status
 func (h *AuthHandler) Status(w http.ResponseWriter, r *http.Request) {
+	registered, err := h.store.HasUser()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	respondJSON(w, http.StatusOK, map[string]bool{
-		"registered":    h.store.HasUser(),
+		"registered":    registered,
 		"authenticated": IsAuthenticated(r),
 	})
 }
 
 // POST /api/auth/register-begin — first-run, no token needed
 func (h *AuthHandler) RegisterBegin(w http.ResponseWriter, r *http.Request) {
-	if h.store.HasUser() {
-		respondError(w, http.StatusConflict, "user already registered")
-		return
-	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 
-	id := make([]byte, 64)
-	if _, err := rand.Read(id); err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	user, err := h.store.CreateUser("admin", id)
+	user, err := h.store.CreateUserIfAbsent()
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if len(user.Credential) > 0 {
+		respondError(w, http.StatusConflict, "user already registered")
 		return
 	}
 
@@ -58,12 +59,14 @@ func (h *AuthHandler) RegisterBegin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setTempSession(w, session)
+	h.setTempSession(w, session)
 	respondJSON(w, http.StatusOK, options)
 }
 
 // POST /api/auth/register-finish
 func (h *AuthHandler) RegisterFinish(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	user := h.store.GetUser()
 	if user == nil {
 		respondError(w, http.StatusBadRequest, "no registration in progress")
@@ -75,7 +78,7 @@ func (h *AuthHandler) RegisterFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session := getTempSession(r)
+	session := h.getTempSession(r)
 	if session == nil {
 		respondError(w, http.StatusBadRequest, "no registration session")
 		return
@@ -87,19 +90,27 @@ func (h *AuthHandler) RegisterFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.AddCredential(credential)
+	if err := user.AddCredential(credential); err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	if err := h.store.UpdateCredential(user); err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	clearTempSession(w)
-	h.sessions.SetSession(w, user.Name)
+	h.clearTempSession(w)
+	if err := h.sessions.SetSession(w, user.Name); err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	respondJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
 // POST /api/auth/login-begin
 func (h *AuthHandler) LoginBegin(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	user := h.store.GetUser()
 	if user == nil {
 		respondError(w, http.StatusNotFound, "no user registered")
@@ -112,19 +123,21 @@ func (h *AuthHandler) LoginBegin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setTempSession(w, session)
+	h.setTempSession(w, session)
 	respondJSON(w, http.StatusOK, options)
 }
 
 // POST /api/auth/login-finish
 func (h *AuthHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	user := h.store.GetUser()
 	if user == nil {
 		respondError(w, http.StatusNotFound, "no user registered")
 		return
 	}
 
-	session := getTempSession(r)
+	session := h.getTempSession(r)
 	if session == nil {
 		respondError(w, http.StatusBadRequest, "no login session")
 		return
@@ -137,21 +150,31 @@ func (h *AuthHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.SignCount = credential.Authenticator.SignCount
-	h.store.UpdateCredential(user)
+	if err := h.store.UpdateCredential(user); err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 
-	clearTempSession(w)
-	h.sessions.SetSession(w, user.Name)
+	h.clearTempSession(w)
+	if err := h.sessions.SetSession(w, user.Name); err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	respondJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
 // POST /api/auth/logout
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	h.sessions.ClearSession(w)
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
+	h.sessions.ClearSession(w, r)
 	respondJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
 // POST /api/auth/add-key-begin — requires authentication
 func (h *AuthHandler) AddKeyBegin(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	if !IsAuthenticated(r) {
 		respondError(w, http.StatusUnauthorized, "not authenticated")
 		return
@@ -169,12 +192,14 @@ func (h *AuthHandler) AddKeyBegin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setTempSession(w, session)
+	h.setTempSession(w, session)
 	respondJSON(w, http.StatusOK, options)
 }
 
 // POST /api/auth/add-key-finish — requires authentication
 func (h *AuthHandler) AddKeyFinish(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+
 	if !IsAuthenticated(r) {
 		respondError(w, http.StatusUnauthorized, "not authenticated")
 		return
@@ -186,7 +211,7 @@ func (h *AuthHandler) AddKeyFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session := getTempSession(r)
+	session := h.getTempSession(r)
 	if session == nil {
 		respondError(w, http.StatusBadRequest, "no registration session")
 		return
@@ -198,22 +223,27 @@ func (h *AuthHandler) AddKeyFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.AddCredential(credential)
+	if err := user.AddCredential(credential); err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	if err := h.store.UpdateCredential(user); err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	clearTempSession(w)
+	h.clearTempSession(w)
 	respondJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
-func setTempSession(w http.ResponseWriter, session *webauthn.SessionData) {
+func (h *AuthHandler) setTempSession(w http.ResponseWriter, session *webauthn.SessionData) {
 	data, _ := json.Marshal(session)
 	encoded := base64.URLEncoding.EncodeToString(data)
+	sig := h.sessions.SignTemp(data)
+	value := encoded + "." + sig
 	http.SetCookie(w, &http.Cookie{
 		Name:     "webauthn_session",
-		Value:    encoded,
+		Value:    value,
 		Path:     "/",
 		MaxAge:   300,
 		HttpOnly: true,
@@ -222,14 +252,25 @@ func setTempSession(w http.ResponseWriter, session *webauthn.SessionData) {
 	})
 }
 
-func getTempSession(r *http.Request) *webauthn.SessionData {
+func (h *AuthHandler) getTempSession(r *http.Request) *webauthn.SessionData {
 	cookie, err := r.Cookie("webauthn_session")
 	if err != nil {
 		return nil
 	}
 
-	data, err := base64.URLEncoding.DecodeString(cookie.Value)
+	parts := strings.SplitN(cookie.Value, ".", 2)
+	if len(parts) != 2 {
+		return nil
+	}
+
+	encoded, sig := parts[0], parts[1]
+
+	data, err := base64.URLEncoding.DecodeString(encoded)
 	if err != nil {
+		return nil
+	}
+
+	if !h.sessions.VerifyTemp(data, sig) {
 		return nil
 	}
 
@@ -241,7 +282,7 @@ func getTempSession(r *http.Request) *webauthn.SessionData {
 	return &session
 }
 
-func clearTempSession(w http.ResponseWriter) {
+func (h *AuthHandler) clearTempSession(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "webauthn_session",
 		Value:    "",

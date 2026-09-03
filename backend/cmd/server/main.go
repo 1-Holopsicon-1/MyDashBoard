@@ -31,7 +31,14 @@ func main() {
 	}
 	defer store.Close()
 
-	sessions := auth.NewSessionManager(cfg.SessionSecret)
+	sessions, err := auth.NewSessionManager(cfg.SessionSecret, store)
+	if err != nil {
+		log.Fatalf("Failed to create session manager: %v", err)
+	}
+
+	if cfg.WebAuthnRPID != "localhost" && cfg.SessionSecret == "" {
+		log.Fatal("SESSION_SECRET must be set in production")
+	}
 
 	wn, err := webauthn.New(&webauthn.Config{
 		RPDisplayName: "holopsicon.ru Dashboard",
