@@ -16,6 +16,11 @@ func NewSimplex(svc *service.SimplexService) *SimplexHandler {
 }
 
 func (h *SimplexHandler) GetLinks(w http.ResponseWriter, r *http.Request) {
+	if !IsAuthenticated(r) {
+		respondError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
 	links, err := h.svc.GetLinks(r.Context())
 	if err != nil {
 		respondError(w, http.StatusBadGateway, err.Error())

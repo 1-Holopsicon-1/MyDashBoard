@@ -220,7 +220,7 @@
 		</section>
 
 		<!-- SimpleX Links -->
-		{#if $simplexLinks.length > 0}
+		{#if $authStatus.authenticated && $simplexLinks.length > 0}
 			<section>
 				<div class="section-header">
 					<h2 class="section-title">SimpleX</h2>
