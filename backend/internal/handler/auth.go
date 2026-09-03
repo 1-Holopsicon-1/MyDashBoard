@@ -153,11 +153,6 @@ func (h *AuthHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.store.UpdateCredential(user); err != nil {
-		respondError(w, http.StatusInternalServerError, err)
-		return
-	}
-
 	h.clearTempSession(w)
 	if err := h.sessions.SetSession(w, user.Name); err != nil {
 		respondError(w, http.StatusInternalServerError, err)

@@ -29,7 +29,9 @@ func IsAuthenticated(r *http.Request) bool {
 func AuthRequired(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !IsAuthenticated(r) {
-			http.Error(w, `{"error":"authentication required"}`, http.StatusUnauthorized)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"error":"authentication required"}`))
 			return
 		}
 		next.ServeHTTP(w, r)
